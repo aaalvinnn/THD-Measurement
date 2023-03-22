@@ -50,7 +50,7 @@ char str[10];
 int INT;
 int FLOAT;
 int flag=0;
-#define Length 2048
+#define Length 4096
 Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
 float Distortion;
 float DCAmp;
@@ -105,8 +105,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-  // HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,10);
-  HAL_ADC_Start(&hadc1);
+  HAL_ADC_Start(&hadc1);  //ADC设置为了连续采样，以最高频；通过增大采样点的个数来进行稳定的FFT运算
 	OLED_Init();
 	OLED_Clear();
   /* USER CODE END 2 */
@@ -124,6 +123,7 @@ int main(void)
     }
     adc /= 3;
 		ADC_Vol = adc*3.3/4096;
+    printf("%.4f\n",ADC_Vol);	//用于serialchart波形串口调试
     adc=0;
 		if(flag<Length){
 			Signal[flag].real = ADC_Vol;
@@ -132,8 +132,8 @@ int main(void)
 		}
 		else{
 			flag = flag % Length;
-			FFT(Signal,11);
-			AmpSpectrum(Signal,11,&DCAmp,&Distortion);
+			FFT(Signal,12);
+			AmpSpectrum(Signal,12,&DCAmp,&Distortion);
 		}
 		OLED_ShowString(0,0,"V:");
 		sprintf(str,"%.4f",ADC_Vol);
@@ -144,7 +144,6 @@ int main(void)
 		OLED_ShowString(0,4,"Dst:");
 		sprintf(str,"%.4f",Distortion);
 		OLED_ShowString(40,4,str);
-    printf("%.4f\n",ADC_Vol);	//用于serialchart波形串口调试
   }
   /* USER CODE END 3 */
 }
