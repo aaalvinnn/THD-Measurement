@@ -50,7 +50,7 @@ char str[10];
 int INT;
 int FLOAT;
 int flag=0;
-#define Length 1024
+#define Length 512
 Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
 float Distortion;
 float DCAmp;
@@ -117,6 +117,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 		HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,10);
+    HAL_Delay(20);  
 		for(i=0,adc=0;i<10;i++){
 			adc+=ADC_Value[i];
 		}
