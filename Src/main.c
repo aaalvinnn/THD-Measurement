@@ -43,14 +43,14 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-uint16_t ADC_Value[10];
+uint16_t ADC_Value[3];
 float ADC_Vol;
 int i,adc;
 char str[10];
 int INT;
 int FLOAT;
 int flag=0;
-#define Length 512
+#define Length 2048
 Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
 float Distortion;
 float DCAmp;
@@ -105,6 +105,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
+  // HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,10);
+  HAL_ADC_Start(&hadc1);
 	OLED_Init();
 	OLED_Clear();
   /* USER CODE END 2 */
@@ -116,13 +118,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,10);
-    HAL_Delay(20);  
-		for(i=0,adc=0;i<10;i++){
-			adc+=ADC_Value[i];
-		}
-		adc /=10;
+    HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,3);
+    for(i=0;i<3;i++){
+      adc += ADC_Value[i];
+    }
+    adc /= 3;
 		ADC_Vol = adc*3.3/4096;
+    adc=0;
 		if(flag<Length){
 			Signal[flag].real = ADC_Vol;
 			Signal[flag].imag = 0;
@@ -130,8 +132,8 @@ int main(void)
 		}
 		else{
 			flag = flag % Length;
-			FFT(Signal,10);
-			AmpSpectrum(Signal,10,&DCAmp,&Distortion);
+			FFT(Signal,11);
+			AmpSpectrum(Signal,11,&DCAmp,&Distortion);
 		}
 		OLED_ShowString(0,0,"V:");
 		sprintf(str,"%.4f",ADC_Vol);
@@ -142,20 +144,7 @@ int main(void)
 		OLED_ShowString(0,4,"Dst:");
 		sprintf(str,"%.4f",Distortion);
 		OLED_ShowString(40,4,str);
-		// HAL_Delay(50);
-		printf("%.4f\n",ADC_Vol);	//用于serialchart波形串口调试
-		
-		/*
-		OLED_ShowString(0,0,"jibo:");
-		sprintf(str,"%.4f",Signal[0]);
-		OLED_ShowString(40,0,str);
-		OLED_ShowString(0,2,"1xiebo:");
-		sprintf(str,"%.4f",Signal[1]);
-		OLED_ShowString(40,2,str);
-		OLED_ShowString(0,4,"2xiebo");
-		sprintf(str,"%.4f",Signal[2]);
-		OLED_ShowString(40,4,str);
-		*/
+    printf("%.4f\n",ADC_Vol);	//用于serialchart波形串口调试
   }
   /* USER CODE END 3 */
 }
