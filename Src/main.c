@@ -117,13 +117,14 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+		static int X=0;		//蓝牙上位机屏幕显示横坐标
     HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,3);
     for(i=0;i<3;i++){
       adc += ADC_Value[i];
     }
     adc /= 3;
 		ADC_Vol = adc*3.3/4096;
-    printf("%.4f\n",ADC_Vol);	//用于serialchart波形串口调试
+    printf("*HX%dY%.4f",X,ADC_Vol);	//用于serialchart波形串口调试
     adc=0;
 		if(flag<Length){
 			Signal[flag].real = ADC_Vol;
