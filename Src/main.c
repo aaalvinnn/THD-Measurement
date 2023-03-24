@@ -106,8 +106,6 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADC_Start(&hadc1);  //ADC设置为了连续采样，以最高频；通过增大采样点的个数来进行稳定的FFT运算
-	OLED_Init();
-	OLED_Clear();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -126,6 +124,7 @@ int main(void)
 		ADC_Vol = adc*3.3/4096;
     printf("*HX%dY%.4f",X,ADC_Vol);	//用于serialchart波形串口调试
     adc=0;
+		X++;
 		if(flag<Length){
 			Signal[flag].real = ADC_Vol;
 			Signal[flag].imag = 0;
@@ -136,15 +135,6 @@ int main(void)
 			FFT(Signal,12);
 			AmpSpectrum(Signal,12,&DCAmp,&Distortion);
 		}
-		OLED_ShowString(0,0,"V:");
-		sprintf(str,"%.4f",ADC_Vol);
-		OLED_ShowString(40,0,str);
-		OLED_ShowString(0,2,"DCAmp:");
-		sprintf(str,"%.4f",DCAmp);
-		OLED_ShowString(40,2,str);
-		OLED_ShowString(0,4,"Dst:");
-		sprintf(str,"%.4f",Distortion);
-		OLED_ShowString(40,4,str);
   }
   /* USER CODE END 3 */
 }
