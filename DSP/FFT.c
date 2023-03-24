@@ -662,6 +662,7 @@ void AmpSpectrum(Complex *pData,int m,float* pDCAmp,float* pDistortion)
 	float ModelSquare;
 	*pDCAmp = sqrt(pData[0].real * pData[0].real + pData[0].imag * pData[0].imag) / (N << 1);
 	BasePower = pData[1].real * pData[1].real + pData[1].imag * pData[1].imag;
+	/*用pData结构体数组的后半部分储存FFT变换后的极坐标表达式，其中用real属性储存幅值、imag属性储存角度*/
 	pData[N2 - 1].real = sqrt(BasePower);
 	pData[N2 - 1].imag = asin(pData[N2 - 1].imag / pData[N2 - 1].real);
 	pData[N2 - 1].real /= N;

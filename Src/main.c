@@ -47,8 +47,8 @@ uint16_t ADC_Value[3];
 float ADC_Vol;
 int i,adc;
 int flag=0;
-#define Length 4096
-Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
+#define m 12    //(=log2 N)即时序数组的以2为底的指数
+#define Length 1<<m   //Length为时序数组的长度
 float Distortion;
 float DCAmp;
 /* USER CODE END PM */
@@ -77,7 +77,7 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  float Amp=0;      //储存FFT变化后对应频率的幅度
+	Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -115,6 +115,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
 		static int X=0;		//蓝牙上位机屏幕显示横坐标
     HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,3);
+    /*均值滤波*/
     for(i=0;i<3;i++){
       adc += ADC_Value[i];
     }
@@ -122,22 +123,21 @@ int main(void)
 		ADC_Vol = adc*3.3/4096;
     printf("*HX%dY%.4f",X++,ADC_Vol);	//用于serialchart波形串口调试
     adc=0;
-		if(flag<Length){
+		if(flag<(Length)){
 			Signal[flag].real = ADC_Vol;
 			Signal[flag].imag = 0;
 			flag++;
 		}
 		else{
 			flag = flag % Length;
-			FFT(Signal,12);
-			AmpSpectrum(Signal,12,&DCAmp,&Distortion);
+			FFT(Signal,m);
+      /*串口传输频域*/
+      for(i=0;i<=10;i++){
+        printf("*GX%dY%.4f",i+1,Signal[Length-i-1].real);
+      }
+			AmpSpectrum(Signal,m,&DCAmp,&Distortion);
       /*串口传输失真度*/
       printf("*Z%.4f",Distortion);
-      /*串口传输频域*/
-      for(i=0;i<10;i++){
-        Amp = sqrt(Signal[i].real*Signal[i].real+Signal[i].imag*Signal[i].imag);
-        printf("*GX%dY%.4f",i,Amp);
-      }
 		}
   }
   /* USER CODE END 3 */
