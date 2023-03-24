@@ -46,9 +46,6 @@
 uint16_t ADC_Value[3];
 float ADC_Vol;
 int i,adc;
-char str[10];
-int INT;
-int FLOAT;
 int flag=0;
 #define Length 4096
 Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
@@ -80,6 +77,7 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  float Amp=0;      //储存FFT变化后对应频率的幅度
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -122,9 +120,8 @@ int main(void)
     }
     adc /= 3;
 		ADC_Vol = adc*3.3/4096;
-    printf("*HX%dY%.4f",X,ADC_Vol);	//用于serialchart波形串口调试
+    printf("*HX%dY%.4f",X++,ADC_Vol);	//用于serialchart波形串口调试
     adc=0;
-		X++;
 		if(flag<Length){
 			Signal[flag].real = ADC_Vol;
 			Signal[flag].imag = 0;
@@ -134,6 +131,13 @@ int main(void)
 			flag = flag % Length;
 			FFT(Signal,12);
 			AmpSpectrum(Signal,12,&DCAmp,&Distortion);
+      /*串口传输失真度*/
+      printf("*Z%.4f",Distortion);
+      /*串口传输频域*/
+      for(i=0;i<10;i++){
+        Amp = sqrt(Signal[i].real*Signal[i].real+Signal[i].imag*Signal[i].imag);
+        printf("*GX%dY%.4f",i,Amp);
+      }
 		}
   }
   /* USER CODE END 3 */
