@@ -47,7 +47,8 @@
 float ADC_Vol;
 int i,adc;
 #define m 12    //(=log2 N)即时序数组的以2为底的指数
-#define Length 4096   //Length为时序数组的长度
+#define Length (1<<m)   //Length为时序数组的长度
+#define Fs 100000     //采样频率
 uint16_t ADC_Value[Length]; //储存ADC采集的数据
 __IO uint8_t AdcConvEnd = 0;  //检测ADC是否采集完毕
 Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
@@ -122,7 +123,7 @@ int main(void)
     /* USER CODE BEGIN 3 */
     while(X<Length+1){    //设成Length+1是因为虽然X=Length时虽已经收集完采集结果，但需要再经过一个循环进行FFT计算
       if(X<Length & flag<Length){
-        ADC_Vol = ADC_Value[X];
+        ADC_Vol = ADC_Value[X]*3.3/Length;
         printf("*HX%dY%.4f",X++,ADC_Vol);	//用于serialchart波形串口调试
         Signal[flag].real = ADC_Vol;
         Signal[flag].imag = 0;
@@ -133,10 +134,10 @@ int main(void)
         FFT(Signal,m);
         AmpSpectrum(Signal,m,&DCAmp,&Distortion);
         /*串口传输失真度*/
-        printf("*Z%.4f",Distortion);
+        printf("*Z%.2f",Distortion*100);
         /*串口传输频域*/
-        for(i=0;i<5;i++){
-          printf("*GX%dY%.4f",i,Signal[Length-i-1].real);
+        for(i=0;i<(20);i++){
+          printf("*GX%.2fY%.4f",(float)i*Fs/Length,Signal[Length-i-1].real);
         }
       }
     }
