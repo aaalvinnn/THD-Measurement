@@ -47,8 +47,9 @@ uint16_t ADC_Value[3];
 float ADC_Vol;
 int i,adc;
 int flag=0;
-#define m 12    //(=log2 N)即时序数组的以2为底的指数
-#define Length 1<<m   //Length为时序数组的长度
+#define m 10    //(=log2 N)即时序数组的以2为底的指数
+#define Length 1024   //Length为时序数组的长度
+Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
 float Distortion;
 float DCAmp;
 /* USER CODE END PM */
@@ -77,7 +78,6 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -104,6 +104,7 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADC_Start(&hadc1);  //ADC设置为了连续采样，以最高频；通过增大采样点的个数来进行稳定的FFT运算
+	ADC_Vol++;
   /* USER CODE END 2 */
 
   /* Infinite loop */
