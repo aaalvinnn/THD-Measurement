@@ -46,14 +46,13 @@
 /* USER CODE BEGIN PM */
 float ADC_Vol;
 int i,adc;
-int flag=0;
-#define m 10    //(=log2 N)即时序数组的以2为底的指数
-#define Length 1024   //Length为时序数组的长度
+#define m 12    //(=log2 N)即时序数组的以2为底的指数
+#define Length 4096   //Length为时序数组的长度
 uint16_t ADC_Value[Length]; //储存ADC采集的数据
 __IO uint8_t AdcConvEnd = 0;  //检测ADC是否采集完毕
 Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
-float Distortion;
-float DCAmp;
+float Distortion=0;
+float DCAmp=0;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -80,6 +79,8 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  int X=0;		//蓝牙上位机屏幕显示横坐标
+  int flag=0; //FFT标志位
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -107,7 +108,8 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim3);
-  HAL_ADCEx_Calibration_Start(&hadc1);    //AD校准
+  // HAL_ADCEx_Calibration_Start(&hadc1);    //AD校准
+  HAL_Delay(200);
   HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,Length);        //DMA发送数据
   /* USER CODE END 2 */
 
@@ -118,27 +120,26 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		static int X=0;		//蓝牙上位机屏幕显示横坐标
-
-		ADC_Vol = adc*3.3/4096;
-    printf("*HX%dY%.4f",X++,ADC_Vol);	//用于serialchart波形串口调试
-    adc=0;
-		if(flag<(Length)){
-			Signal[flag].real = ADC_Vol;
-			Signal[flag].imag = 0;
-			flag++;
-		}
-		else{
-			flag = flag % Length;
-			FFT(Signal,m);
-      /*串口传输频域*/
-      for(i=0;i<=10;i++){
-        printf("*GX%dY%.4f",i+1,Signal[Length-i-1].real);
+    while(X<Length+1){    //设成Length+1是因为虽然X=Length时虽已经收集完采集结果，但需要再经过一个循环进行FFT计算
+      if(X<Length & flag<Length){
+        ADC_Vol = ADC_Value[X];
+        printf("*HX%dY%.4f",X++,ADC_Vol);	//用于serialchart波形串口调试
+        Signal[flag].real = ADC_Vol;
+        Signal[flag].imag = 0;
+        flag++;
       }
-			AmpSpectrum(Signal,m,&DCAmp,&Distortion);
-      /*串口传输失真度*/
-      printf("*Z%.4f",Distortion);
-		}
+      else if(flag == Length){
+        flag = flag % Length;
+        FFT(Signal,m);
+        AmpSpectrum(Signal,m,&DCAmp,&Distortion);
+        /*串口传输失真度*/
+        printf("*Z%.4f",Distortion);
+        /*串口传输频域*/
+        for(i=0;i<5;i++){
+          printf("*GX%dY%.4f",i,Signal[Length-i-1].real);
+        }
+      }
+    }
   }
   /* USER CODE END 3 */
 }
