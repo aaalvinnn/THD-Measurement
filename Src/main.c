@@ -50,6 +50,7 @@ int i,adc;
 #define m 11    //(=log2 N)即时序数组的以2为底的指数
 #define Length 2048   //Length为时序数组的长度
 #define Fs 100000     //采样频率
+#define F 1000    //输入信号基频
 uint16_t ADC_Value[Length]; //储存ADC采集的数据
 __IO uint8_t AdcConvEnd = 0;  //检测ADC是否采集完毕
 // Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
@@ -57,6 +58,7 @@ float Distortion=0;
 float DCAmp=0;
 double pr[Length],pi[Length],fr[Length],fi[Length];
 double window[Length];// 窗函数
+double Fstep = (double)Fs/Length; //频率分辨率
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -86,6 +88,7 @@ int main(void)
 	
   int X=0;		//蓝牙上位机屏幕显示横坐标
   int flag=0; //FFT标志位
+  int flag1[5]; //储存谐波下标
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -120,8 +123,8 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	void sort(int, double*);
-	hannWin(Length,window);	//加窗函数程序崩？
+	void sort(int, double*, int*);
+	hannWin(Length,window);	//加窗函数
   while (1)
   {
     /* USER CODE END WHILE */
@@ -131,44 +134,25 @@ int main(void)
     while(X<Length+1){    //设成Length+1是因为虽然X=Length时虽已经收集完采集结果，但需要再经过一个循环进行FFT计算.又因为当X=1024后不继续加了，所以陷入了空的死循环
       if(X<Length & flag<Length){
         ADC_Vol = ADC_Value[X]*3.3/4096;
-				pr[X]=ADC_Vol * window[X];	//和窗函数混叠，以提高FFT正确率,这一句也不行？崩
+				pr[X]=ADC_Vol * window[X];	//和窗函数混叠，以提高FFT正确率
         printf("*HX%dY%.4f",X++,ADC_Vol);	//用于serialchart波形串口调试
-				
-				
-				
-				/*原FFT变换传参
-        Signal[flag].real = ADC_Vol;
-        Signal[flag].imag = 0;
-				*/
         flag++;
       }
       else if(flag == Length){
         flag = flag % Length;
-				
-				
 				/* 新FFT变化 */
 				kfft(pr,pi,Length,m,fr,fi);
-				
-				
-				/*原FFT变化
-        FFT(Signal,m);
-        AmpSpectrum(Signal,m,&DCAmp,&Distortion);
-				*/
-				
-				/*串口传输频域*/
-
-				
         /*串口传输失真度*/
-        sort(Length, pr);
-        Distortion = sqrt((pr[Length-4]/Length/2)*(pr[Length-4]/Length/2) //二次谐波
-        +(pr[Length-6]/Length/2)*(pr[Length-6]/Length/2)  //三次谐波
-        +(pr[Length-8]/Length/2)*(pr[Length-8]/Length/2)  //四次谐波
-        +(pr[Length-10]/Length/2)*(pr[Length-10]/Length/2)) //五次谐波
-        /(pr[Length-2]/Length/2); //一次谐波频率分量幅值
+        sort(Length, pr,flag1);
+        Distortion = sqrt((pr[flag1[1]])*(pr[flag1[1]]) //二次谐波
+        +(pr[flag1[2]])*(pr[flag1[2]])  //三次谐波
+        +(pr[flag1[3]])*(pr[flag1[3]])  //四次谐波
+        +(pr[flag1[4]])*(pr[flag1[4]])) //五次谐波
+        /(pr[flag1[0]]); //一次谐波频率分量幅值
         printf("*Z%.2f",Distortion*100);
-				
-        for(i=1;i<=(5);i++){
-          printf("*GX%dY%.4f",i,pr[Length-i*2]/Length/2);
+        /* 计算五次谐波归一化幅值 */
+        for(i=0;i<5;i++){
+          printf("*GX%dY%.4f",i,pr[flag1[i]]/pr[flag1[0]]);
         }
       }
     }
@@ -226,22 +210,31 @@ void SystemClock_Config(void)
 *   注意FFT后数组第一个元素是直流分量，在输入3.3/2=1.65V直流偏置时，直流偏置应该是最大的那一个量，排序后作为新数组中的最后一个元素；
 *  同时其他的频率分量根据FFT计算的对称性，有两个相同的量
 */
-void sort(int N,double *nums)
+void sort(int N,double *nums, int flag1[])
 {	
-    
-    int i,j;
-		double temp;//循环变量
-	/******外层控制轮数********/
-	for(i=0;i<N-1;i++)  
+    int i,j=0;
+  /* 寻找极大值下标 */
+	/* 先找出基波（一次谐波）频率最大值点 */
+	flag1[0]=2;
+	/* 只查找前半部分，从i=2开始是因为排除直流分量（i=0）以及因加窗导致的直流分量频域附近的影响（i=2）*/
+	for(i=2;i<(Length)>>1;i++)		
 	{
-	/******内层控制循环，每轮比较次数********/
-		for(j=0;j<N-i-1;j++)
+		if(pr[i+1]>=pr[flag1[0]])
 		{
-			if(nums[j]>nums[j+1])//>升序<降序
+			flag1[0]=i+1;
+		}
+	}
+  /* 然后开始找五次谐波内的极大值点 */
+	for(j=0;j<4;j++)
+	{
+		/* 因谐波频率都是基波频率的整数倍，故先确定小范围寻找极大值的中心点 */
+		flag1[j+1]=flag1[j]+(int)F/Fstep;
+		/* 一次搜寻包括中心频率点在内的附近5个点 */
+		for(i=0;i<5;i++)		
+		{
+			if(pr[flag1[j+1]+i-2]>=pr[flag1[j+1]])
 			{
-				temp=nums[j];
-				nums[j]=nums[j+1];
-				nums[j+1]=temp;
+				flag1[j+1]=flag1[j+1]+i-2;
 			}
 		}
 	}
