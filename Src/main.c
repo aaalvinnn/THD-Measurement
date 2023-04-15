@@ -47,13 +47,12 @@
 /* USER CODE BEGIN PM */
 double ADC_Vol;
 int i,adc;
-#define m 11    //(=log2 N)即时序数组的以2为底的指数
+#define m 11   //(=log2 N)即时序数组的以2为底的指数
 #define Length 2048   //Length为时序数组的长度
-#define Fs 100000     //采样频率
+#define Fs 500000     //采样频率 根据cubeMX来设置			//太奇怪了，单片机采样频率的确定，测量大概在400k~500k，但怎么都改不了！
 #define F 1000    //输入信号基频
-uint16_t ADC_Value[Length]; //储存ADC采集的数据
+uint16_t ADC_Value[Length+2]; //储存ADC采集的数据
 __IO uint8_t AdcConvEnd = 0;  //检测ADC是否采集完毕
-// Complex Signal[Length];	//储存一组时序采样信号，用于FFT计算，以及作为FFT结果储存的缓冲区
 float Distortion=0;
 float DCAmp=0;
 double pr[Length],pi[Length],fr[Length],fi[Length];
@@ -87,7 +86,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	
   int X=0;		//蓝牙上位机屏幕显示横坐标
-  int flag=0; //FFT标志位
+  int flag=0; //计数标志位
   int flag1[5]; //储存谐波下标
   /* USER CODE END 1 */
 
@@ -114,46 +113,65 @@ int main(void)
   MX_USART1_UART_Init();
   MX_ADC1_Init();
   MX_TIM3_Init();
+  MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim3);
+	HAL_Delay(200);
   // HAL_ADCEx_Calibration_Start(&hadc1);    //AD校准
-  HAL_Delay(200);
-  HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,Length);        //DMA发送数据
+  HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,Length+2);        //DMA发送数据
+	while(!AdcConvEnd);		//等待AD采集完成
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	void sort(int, double*, int*);
+	void freadd(int N,double *nums, int flag1[], int n);
 	hannWin(Length,window);	//加窗函数
   while (1)
   {
     /* USER CODE END WHILE */
-		HAL_Delay(200);
-		HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_13);
+
     /* USER CODE BEGIN 3 */
+		/* LED0闪烁一下，表示程序正常运行 */ 
+		HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_13);
     while(X<Length+1){    //设成Length+1是因为虽然X=Length时虽已经收集完采集结果，但需要再经过一个循环进行FFT计算.又因为当X=1024后不继续加了，所以陷入了空的死循环
       if(X<Length & flag<Length){
-        ADC_Vol = ADC_Value[X]*3.3/4096;
+				/* 三次移动平均 */
+				for(i=0;i<3;i++)
+				{
+					ADC_Vol+=ADC_Value[X+i];
+				}
+        ADC_Vol = (double)ADC_Vol*3.3/4095/3;
 				pr[X]=ADC_Vol * window[X];	//和窗函数混叠，以提高FFT正确率
         printf("*HX%dY%.4f",X++,ADC_Vol);	//用于serialchart波形串口调试
+				//X++;
         flag++;
       }
       else if(flag == Length){
         flag = flag % Length;
 				/* 新FFT变化 */
 				kfft(pr,pi,Length,m,fr,fi);
+				/*
+				for(i=0;i<Length;i++)
+				{
+					printf("*HX%dY%.4f",i,pr[i]);
+				}
+				*/
         /*串口传输失真度*/
         sort(Length, pr,flag1);
+				freadd(Length, pr,flag1,3);	//减少频谱泄露，累加周围的3次频域
         Distortion = sqrt((pr[flag1[1]])*(pr[flag1[1]]) //二次谐波
         +(pr[flag1[2]])*(pr[flag1[2]])  //三次谐波
         +(pr[flag1[3]])*(pr[flag1[3]])  //四次谐波
         +(pr[flag1[4]])*(pr[flag1[4]])) //五次谐波
         /(pr[flag1[0]]); //一次谐波频率分量幅值
         printf("*Z%.2f",Distortion*100);
-        /* 计算五次谐波归一化幅值 */
-        for(i=0;i<5;i++){
-          printf("*GX%dY%.4f",i,pr[flag1[i]]/pr[flag1[0]]);
-        }
+				/* 输出五次谐波归一化幅值 */
+				printf("*A%.4f",pr[flag1[0]]/pr[flag1[0]]);
+				printf("*B%.4f",pr[flag1[1]]/pr[flag1[0]]);
+				printf("*C%.4f",pr[flag1[2]]/pr[flag1[0]]);
+				printf("*D%.4f",pr[flag1[3]]/pr[flag1[0]]);
+				printf("*E%.4f",pr[flag1[4]]/pr[flag1[0]]);
       }
     }
   }
@@ -195,11 +213,11 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV8;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
@@ -215,7 +233,7 @@ void sort(int N,double *nums, int flag1[])
     int i,j=0;
   /* 寻找极大值下标 */
 	/* 先找出基波（一次谐波）频率最大值点 */
-	flag1[0]=2;
+	flag1[0]=5;
 	/* 只查找前半部分，从i=2开始是因为排除直流分量（i=0）以及因加窗导致的直流分量频域附近的影响（i=2）*/
 	for(i=2;i<(Length)>>1;i++)		
 	{
@@ -228,17 +246,32 @@ void sort(int N,double *nums, int flag1[])
 	for(j=0;j<4;j++)
 	{
 		/* 因谐波频率都是基波频率的整数倍，故先确定小范围寻找极大值的中心点 */
-		flag1[j+1]=flag1[j]+(int)F/Fstep;
-		/* 一次搜寻包括中心频率点在内的附近5个点 */
-		for(i=0;i<5;i++)		
+		// flag1[j+1]=flag1[j]+(int)F/Fstep;
+		flag1[j+1] = flag1[0]*(j+2);			//因为单片机采样频率难以确定，所以不使用通过采样频率确定极大值下标的方法
+		/* 一次搜寻包括中心频率点在内的附近10个点 */
+		for(i=0;i<9;i++)		
 		{
-			if(pr[flag1[j+1]+i-2]>=pr[flag1[j+1]])
+			if(pr[flag1[j+1]+i-4]>=pr[flag1[j+1]])
 			{
-				flag1[j+1]=flag1[j+1]+i-2;
+				flag1[j+1]=flag1[j+1]+i-4;
 			}
 		}
 	}
 }
+/* 频谱累积 */
+/* 其中n为累加的次数 */
+void freadd(int N,double *nums, int flag1[], int n)
+{
+	int i,j;
+	for(i=0;i<5;i++)
+	{
+		for(j=0;j<n;j++)
+		{
+			nums[flag1[i]]+=nums[flag1[i]-(int)n/2+j];
+		}
+	}
+}	
+
 /* USER CODE END 4 */
 
 /**
