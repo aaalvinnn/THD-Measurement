@@ -86,7 +86,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	
   int X=0;		//蓝牙上位机屏幕显示横坐标
-  int flag=0; //计数标志位
+  // +-int flag=0; //计数标志位
   int flag1[5]; //储存谐波下标
   /* USER CODE END 1 */
 
@@ -113,9 +113,12 @@ int main(void)
   MX_USART1_UART_Init();
   MX_ADC1_Init();
   MX_TIM3_Init();
-  MX_TIM8_Init();
+  MX_TIM9_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim3);
+	
+	// HAL_TIM_Base_Start_IT(&htim9);
+	
 	HAL_Delay(200);
   // HAL_ADCEx_Calibration_Start(&hadc1);    //AD校准
   HAL_ADC_Start_DMA(&hadc1,(uint32_t *)ADC_Value,Length+2);        //DMA发送数据
@@ -127,53 +130,44 @@ int main(void)
 	void sort(int, double*, int*);
 	void freadd(int N,double *nums, int flag1[], int n);
 	hannWin(Length,window);	//加窗函数
+	/* USER CODE BEGIN 3 */
+	/* LED0闪烁一下，表示程序正常运行 */ 
+	HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_13);
+	for(X=0;X<Length;X++){
+		/* 三次移动平均 */
+		for(i=0;i<3;i++){
+			ADC_Vol+=ADC_Value[X+i];
+		}
+    ADC_Vol = (double)ADC_Vol*3.3/4095/3;
+		pr[X]=ADC_Vol * window[X];	//和窗函数混叠，以提高FFT正确率
+    if(X<200)		printf("*HX%dY%.4f",X,ADC_Vol);	//用于serialchart波形串口调试
+    }
+		kfft(pr,pi,Length,m,fr,fi);
+		/*
+		for(X=0;X<Length;X++){
+			printf("*HX%dY%.4f",X,pr[X]);
+		}
+		*/
+    /*串口传输失真度*/
+    sort(Length, pr,flag1);
+		freadd(Length, pr,flag1,3);	//减少频谱泄露，累加周围的3次频域
+    Distortion = sqrt((pr[flag1[1]])*(pr[flag1[1]]) //二次谐波
+    +(pr[flag1[2]])*(pr[flag1[2]])  //三次谐波
+    +(pr[flag1[3]])*(pr[flag1[3]])  //四次谐波
+    +(pr[flag1[4]])*(pr[flag1[4]])) //五次谐波
+    /(pr[flag1[0]]); //一次谐波频率分量幅值
+    printf("*Z%.2f",Distortion*100);
+		/* 输出五次谐波归一化幅值 */
+		printf("*A%.4f",pr[flag1[0]]/pr[flag1[0]]);
+		printf("*B%.4f",pr[flag1[1]]/pr[flag1[0]]);
+		printf("*C%.4f",pr[flag1[2]]/pr[flag1[0]]);
+		printf("*D%.4f",pr[flag1[3]]/pr[flag1[0]]);
+		printf("*E%.4f",pr[flag1[4]]/pr[flag1[0]]);
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		/* LED0闪烁一下，表示程序正常运行 */ 
-		HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_13);
-    while(X<Length+1){    //设成Length+1是因为虽然X=Length时虽已经收集完采集结果，但需要再经过一个循环进行FFT计算.又因为当X=1024后不继续加了，所以陷入了空的死循环
-      if(X<Length & flag<Length){
-				/* 三次移动平均 */
-				for(i=0;i<3;i++)
-				{
-					ADC_Vol+=ADC_Value[X+i];
-				}
-        ADC_Vol = (double)ADC_Vol*3.3/4095/3;
-				pr[X]=ADC_Vol * window[X];	//和窗函数混叠，以提高FFT正确率
-        printf("*HX%dY%.4f",X++,ADC_Vol);	//用于serialchart波形串口调试
-				//X++;
-        flag++;
-      }
-      else if(flag == Length){
-        flag = flag % Length;
-				/* 新FFT变化 */
-				kfft(pr,pi,Length,m,fr,fi);
-				/*
-				for(i=0;i<Length;i++)
-				{
-					printf("*HX%dY%.4f",i,pr[i]);
-				}
-				*/
-        /*串口传输失真度*/
-        sort(Length, pr,flag1);
-				freadd(Length, pr,flag1,3);	//减少频谱泄露，累加周围的3次频域
-        Distortion = sqrt((pr[flag1[1]])*(pr[flag1[1]]) //二次谐波
-        +(pr[flag1[2]])*(pr[flag1[2]])  //三次谐波
-        +(pr[flag1[3]])*(pr[flag1[3]])  //四次谐波
-        +(pr[flag1[4]])*(pr[flag1[4]])) //五次谐波
-        /(pr[flag1[0]]); //一次谐波频率分量幅值
-        printf("*Z%.2f",Distortion*100);
-				/* 输出五次谐波归一化幅值 */
-				printf("*A%.4f",pr[flag1[0]]/pr[flag1[0]]);
-				printf("*B%.4f",pr[flag1[1]]/pr[flag1[0]]);
-				printf("*C%.4f",pr[flag1[2]]/pr[flag1[0]]);
-				printf("*D%.4f",pr[flag1[3]]/pr[flag1[0]]);
-				printf("*E%.4f",pr[flag1[4]]/pr[flag1[0]]);
-      }
-    }
   }
   /* USER CODE END 3 */
 }
@@ -213,11 +207,11 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV8;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV2;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -272,6 +266,19 @@ void freadd(int N,double *nums, int flag1[], int n)
 	}
 }	
 
+/* 中断回调函数 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+  if(htim == &htim9){
+    static int i=0;
+    if(i<3){
+
+    }
+    else{
+		  printf("TIMER TEST");	
+			HAL_GPIO_TogglePin(GPIOG,GPIO_PIN_13);
+    }
+  }
+}
 /* USER CODE END 4 */
 
 /**
