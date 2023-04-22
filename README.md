@@ -13,7 +13,7 @@
 
 ## 总体框架
 
-![image-20230422114557818](C:\Users\28692\AppData\Roaming\Typora\typora-user-images\image-20230422114557818.png)
+![image-20230422114557818](https://raw.githubusercontent.com/aaalvinnn/THD-Measurement/main/images/image-20230422114557818.png)
 
 ## 硬件思路
 
@@ -33,7 +33,7 @@
 
 
 
-![image-20230422114651729](C:\Users\28692\AppData\Roaming\Typora\typora-user-images\image-20230422114651729.png)
+![image-20230422114651729](https://raw.githubusercontent.com/aaalvinnn/THD-Measurement/main/images/image-20230422114651729.png)
 
 ## 软件思路
 
@@ -91,11 +91,11 @@ $$
 
 输入基波f=3、4、5kHz，幅值1000mV，5次谐波幅值都为500mV，理论失真度100%
 
-![image-20230422121246383](C:\Users\28692\AppData\Roaming\Typora\typora-user-images\image-20230422121246383.png)
+![image-20230422121246383](https://raw.githubusercontent.com/aaalvinnn/THD-Measurement/main/images/image-20230422121246383.png)
 
-![image-20230422121251738](C:\Users\28692\AppData\Roaming\Typora\typora-user-images\image-20230422121251738.png)
+![image-20230422121251738](https://raw.githubusercontent.com/aaalvinnn/THD-Measurement/main/images/image-20230422121251738.png)
 
-![image-20230422121302015](C:\Users\28692\AppData\Roaming\Typora\typora-user-images\image-20230422121302015.png)
+![image-20230422121302015](https://raw.githubusercontent.com/aaalvinnn/THD-Measurement/main/images/image-20230422121302015.png)
 
 （软硬联调……）
 
